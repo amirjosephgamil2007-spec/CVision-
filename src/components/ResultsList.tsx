@@ -152,25 +152,25 @@ export function ResultsList({ results, onRemoveResult, onClearAll }: Props) {
                 <div className="flex-1 space-y-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Summary</p>
-                    <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-3">
+                    <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
                       {result.summary}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 mt-auto">
                     <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded">
-                      <p className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase mb-0.5">Strengths</p>
-                      <ul className="text-[10px] text-green-800 dark:text-green-300 space-y-0.5 list-disc pl-3">
-                        {result.strengths.slice(0, 3).map((s, i) => (
-                          <li key={i} className="line-clamp-1">{s}</li>
+                      <p className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase mb-1">Strengths</p>
+                      <ul className="text-[10px] text-green-800 dark:text-green-300 space-y-1 list-disc pl-3">
+                        {result.strengths.slice(0, 4).map((s, i) => (
+                          <li key={i}>{s}</li>
                         ))}
                       </ul>
                     </div>
                     <div className="bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
-                      <p className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase mb-0.5">Focus Areas</p>
-                      <ul className="text-[10px] text-amber-800 dark:text-amber-300 space-y-0.5 list-disc pl-3">
-                        {result.weaknesses.slice(0, 3).map((w, i) => (
-                          <li key={i} className="line-clamp-1">{w}</li>
+                      <p className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase mb-1">Focus Areas</p>
+                      <ul className="text-[10px] text-amber-800 dark:text-amber-300 space-y-1 list-disc pl-3">
+                        {result.weaknesses.slice(0, 4).map((w, i) => (
+                          <li key={i}>{w}</li>
                         ))}
                       </ul>
                     </div>

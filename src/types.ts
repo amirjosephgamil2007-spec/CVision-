@@ -4,6 +4,7 @@ export interface JobProfile {
   description: string;
   tasks: string;
   experienceLevel?: string;
+  certifications?: string;
 }
 
 export interface CVResult {

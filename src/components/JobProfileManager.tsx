@@ -112,6 +112,16 @@ export function JobProfileManager({ activeProfileId, onSelectProfile, onOpenProf
             />
           </div>
           <div>
+            <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Required Certifications</label>
+            <input 
+              type="text" 
+              value={currentProfile.certifications || ''}
+              onChange={e => setCurrentProfile({...currentProfile, certifications: e.target.value})}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-transparent focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="e.g., AWS Certified, PMP, CPA (Optional)"
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Key Tasks/Responsibilities</label>
             <textarea 
               value={currentProfile.tasks || ''}
@@ -169,10 +179,19 @@ export function JobProfileManager({ activeProfileId, onSelectProfile, onOpenProf
                       </button>
                     </div>
                   </div>
-                  {profile.experienceLevel && (
-                    <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400 px-2 py-0.5 rounded-full w-fit mb-3">
-                      {profile.experienceLevel}
-                    </span>
+                  {(profile.experienceLevel || profile.certifications) && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {profile.experienceLevel && (
+                        <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400 px-2 py-0.5 rounded-full">
+                          {profile.experienceLevel}
+                        </span>
+                      )}
+                      {profile.certifications && (
+                        <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400 px-2 py-0.5 rounded-full">
+                          {profile.certifications}
+                        </span>
+                      )}
+                    </div>
                   )}
                   <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-6 flex-1">
                     {profile.description}

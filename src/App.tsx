@@ -79,7 +79,7 @@ export default function App() {
             <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">
               C
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-[#1e293b] dark:text-white">ScreenView</h1>
+            <h1 className="text-xl font-bold tracking-tight text-[#1e293b] dark:text-white">CVision</h1>
           </div>
           <ThemeToggle />
         </div>
