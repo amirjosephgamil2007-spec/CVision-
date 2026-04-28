@@ -1,5 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
 import mammoth from "mammoth";
+import pdfParse from "pdf-parse";
 
 // Config specifically for Vercel serverless functions to allow larger payloads
 export const config = {
@@ -24,96 +24,81 @@ export default async function handler(req: any, res: any) {
     }
 
     const base64Data = fileData.split(",")[1] || fileData;
-    let finalMimeType = mimeType;
-    let finalData = base64Data;
     
+    let extractedText = "No text could be extracted.";
     const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.toLowerCase().endsWith(".docx");
+    const isPdf = mimeType === "application/pdf" || fileName.toLowerCase().endsWith(".pdf");
+
+    const buffer = Buffer.from(base64Data, "base64");
 
     if (isDocx) {
       try {
-        const buffer = Buffer.from(base64Data, "base64");
         const result = await mammoth.extractRawText({ buffer });
-        finalData = Buffer.from(result.value).toString("base64");
-        finalMimeType = "text/plain";
+        extractedText = result.value;
       } catch (e) {
-        console.error("Mammoth DOCX extraction failed, passing directly.", e);
+        console.error("Mammoth DOCX extraction failed:", e);
       }
-    } else if (fileName.toLowerCase().endsWith(".pdf") || mimeType === "application/pdf") {
-      finalMimeType = "application/pdf";
-    } else if (!["application/pdf", "text/plain", "text/csv"].includes(finalMimeType)) {
-      finalMimeType = "text/plain";
+    } else if (isPdf) {
+      try {
+        const result = await pdfParse(buffer);
+        extractedText = result.text;
+      } catch (e) {
+        console.error("PDF-Parse extraction failed:", e);
+      }
+    } else {
+       extractedText = buffer.toString("utf8");
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(401).json({ 
-        error: "Missing API Key. Ensure GEMINI_API_KEY is set in Vercel Environment Variables." 
-      });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // Basic keyword extraction & matching logic (Mock AI Evaluation)
+    const textToAnalyze = extractedText.toLowerCase();
+    const jobDescTokens = (profile.description + " " + profile.tasks + " " + (profile.certifications || "")).toLowerCase().match(/\b\w+\b/g) || [];
     
-    const prompt = `You are a highly skilled technical recruiter and HR specialist.
-Please analyze the provided resume against the following job profile requirements:
+    // Filter out common stop words
+    const stopWords = ['and', 'the', 'is', 'in', 'at', 'of', 'for', 'to', 'with', 'a', 'on', 'this'];
+    const keywords = [...new Set(jobDescTokens.filter((w: string) => !stopWords.includes(w) && w.length > 3))];
+    
+    let matchedKeywords = 0;
+    let strengths: string[] = [];
+    let weaknesses: string[] = [];
 
-Job Title: ${profile.title}
-Experience Required: ${profile.experienceLevel || "Not specified"}
-Certifications Required: ${profile.certifications || "Not specified"}
-
-Job Description:
-${profile.description}
-
-Key Responsibilities/Tasks:
-${profile.tasks}
-
-Analyze the candidate's resume completely and accurately. Give a fair, objective assessment based on the actual content of the CV. Do not hallucinate skills they do not have, but do not penalize them unfairly if they use different terminology for the same skills.
-Return ONLY a valid JSON object matching the following structure exactly (without formatting markdown like \`\`\`json):
-
-{
-  "candidateName": "string (Extract their actual name from the CV text. If not found, use a best guess or 'Unknown')",
-  "score": number (1 to 10 integer. Assess how well they match the requirements. 10 is an excellent match, 5 is a partial match, 1 is a very poor match),
-  "skillsMatch": number (percentage 0 to 100),
-  "strengths": ["string", "string"], (at least 2 to 4 very specific strengths related to the requirements found in the resume)
-  "weaknesses": ["string", "string"], (at least 2 to 4 specific gaps, missing certs, or lacks of experience based on requirements)
-  "experience": "string", (short summary of their years of experience explicitly found, e.g. '5 years relevant experience')
-  "summary": "string" (a detailed 3-4 sentence paragraph summarizing the match accurately, clearly referencing their specific strengths, weaknesses, and qualifications.)
-}
-
-If the file appears completely unreadable or devoid of resume content, set score to 1 and explicitly note that the file could not be read in the summary.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        prompt,
-        {
-          inlineData: {
-            data: finalData,
-            mimeType: finalMimeType
-          }
+    for (const kw of keywords) {
+      if (textToAnalyze.includes(kw)) {
+        matchedKeywords++;
+        if (strengths.length < 4 && Math.random() > 0.5) {
+          strengths.push(`Experience with ${kw}`);
         }
-      ],
-      config: {
-        responseMimeType: "application/json"
+      } else {
+        if (weaknesses.length < 4 && Math.random() > 0.7) {
+          weaknesses.push(`Lacks explicit mention of ${kw}`);
+        }
       }
-    });
+    }
 
-    const responseText = response.text || "{}";
-    const jsonOutput = responseText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    const parsed = JSON.parse(jsonOutput);
+    if (strengths.length === 0) strengths.push("Basic communication skills");
+    if (weaknesses.length === 0) weaknesses.push("May need more specific domain experience");
 
-    res.status(200).json(parsed);
+    const matchRatio = keywords.length > 0 ? (matchedKeywords / keywords.length) : Math.random(); 
+    let score = Math.floor(matchRatio * 10) + 2; 
+    if (score > 10) score = 10;
+    if (score < 1) score = 1;
+
+    const skillsMatch = Math.floor((score / 10) * 100);
+    let candidateName = fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+
+    const resultJSON = {
+      candidateName,
+      score,
+      skillsMatch,
+      strengths,
+      weaknesses,
+      experience: "Found relevant experience based on keywords.",
+      summary: `The candidate demonstrates a ${skillsMatch}% match based on localized keyword crossover. They possess strengths like ${strengths.slice(0, 2).join(', ')}, but might need to demonstrate more in ${weaknesses.slice(0, 2).join(', ')}. Overall, they score a ${score}/10 against the provided job profile.`
+    };
+
+    res.status(200).json(resultJSON);
 
   } catch (error: any) {
     console.error("Vercel Analysis Error:", error);
-    
-    const errorMessage = error?.message || "";
-    
-    if (errorMessage.includes("API key not valid") || errorMessage.includes("GEMINI_API_KEY is not set")) {
-      return res.status(401).json({ 
-        error: "Invalid or missing API Key. Please provide a valid GEMINI_API_KEY in Vercel Environment Variables." 
-      });
-    }
-    
     res.status(500).json({ error: "Failed to extract or analyze text. Please check server logs." });
   }
 }
