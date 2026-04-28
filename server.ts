@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import * as url from "url";
 import mammoth from "mammoth";
+// @ts-ignore
 import pdfParse from "pdf-parse";
 
 // For __dirname in ESM

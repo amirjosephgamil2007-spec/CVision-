@@ -1,4 +1,5 @@
 import mammoth from "mammoth";
+// @ts-ignore
 import pdfParse from "pdf-parse";
 
 // Config specifically for Vercel serverless functions to allow larger payloads
