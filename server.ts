@@ -32,17 +32,23 @@ async function startServer() {
       const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.toLowerCase().endsWith(".docx");
 
       if (isDocx) {
-        const buffer = Buffer.from(base64Data, "base64");
-        const result = await mammoth.extractRawText({ buffer });
-        finalData = Buffer.from(result.value).toString("base64");
-        finalMimeType = "text/plain";
-      } else if (!["application/pdf", "text/plain", "text/csv"].includes(mimeType)) {
+        try {
+          const buffer = Buffer.from(base64Data, "base64");
+          const result = await mammoth.extractRawText({ buffer });
+          finalData = Buffer.from(result.value).toString("base64");
+          finalMimeType = "text/plain";
+        } catch (e) {
+          console.error("Mammoth DOCX extraction failed, passing directly.", e);
+        }
+      } else if (fileName.toLowerCase().endsWith(".pdf") || mimeType === "application/pdf") {
+        finalMimeType = "application/pdf";
+      } else if (!["application/pdf", "text/plain", "text/csv"].includes(finalMimeType)) {
         finalMimeType = "text/plain";
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      const prompt = `You are an expert technical recruiter and HR specialist.
+      const prompt = `You are a highly skilled technical recruiter and HR specialist.
 Please analyze the provided resume against the following job profile requirements:
 
 Job Title: ${profile.title}
@@ -55,23 +61,23 @@ ${profile.description}
 Key Responsibilities/Tasks:
 ${profile.tasks}
 
-Analyze the candidate's resume carefully. Give a totally objective assessment.
+Analyze the candidate's resume completely and accurately. Give a fair, objective assessment based on the actual content of the CV. Do not hallucinate skills they do not have, but do not penalize them unfairly if they use different terminology for the same skills.
 Return ONLY a valid JSON object matching the following structure exactly (without formatting markdown like \`\`\`json):
 
 {
   "candidateName": "string (Extract their actual name from the CV text. If not found, use a best guess or 'Unknown')",
-  "score": number (1 to 10 integer. Be very strict. 10 is a perfect match, 5 is average, 1 is terrible),
+  "score": number (1 to 10 integer. Assess how well they match the requirements. 10 is an excellent match, 5 is a partial match, 1 is a very poor match),
   "skillsMatch": number (percentage 0 to 100),
-  "strengths": ["string", "string"], (at least 2 to 4 very specific strengths related to the requirements)
-  "weaknesses": ["string", "string"], (at least 2 to 4 very specific shortcomings, missing certs, or lacks of experience based on requirements)
+  "strengths": ["string", "string"], (at least 2 to 4 very specific strengths related to the requirements found in the resume)
+  "weaknesses": ["string", "string"], (at least 2 to 4 specific gaps, missing certs, or lacks of experience based on requirements)
   "experience": "string", (short summary of their years of experience explicitly found, e.g. '5 years relevant experience')
-  "summary": "string" (a detailed 3-4 sentence paragraph summarizing the match, clearly referencing their specific strengths, weaknesses, and qualifications. Mention if they have the required certifications.)
+  "summary": "string" (a detailed 3-4 sentence paragraph summarizing the match accurately, clearly referencing their specific strengths, weaknesses, and qualifications.)
 }
 
-If the file seems unreadable or devoid of resume content, set score to 1 and note that in the summary.`;
+If the file appears completely unreadable or devoid of resume content, set score to 1 and explicitly note that the file could not be read in the summary.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash",
         contents: [
           prompt,
           {
@@ -99,11 +105,11 @@ If the file seems unreadable or devoid of resume content, set score to 1 and not
       
       if (errorMessage.includes("API key not valid") || errorMessage.includes("GEMINI_API_KEY is not set")) {
         return res.status(401).json({ 
-          error: "Invalid or missing Gemini API Key. Please click the gear icon in the top right, go to 'Secrets', and provide a valid GEMINI_API_KEY." 
+          error: "Invalid or missing API Key. If you are in AI Studio, click the gear icon in the top right, go to 'Secrets', and provide a valid GEMINI_API_KEY. If deployed, ensure the GEMINI_API_KEY environment variable is set." 
         });
       }
       
-      res.status(500).json({ error: "Failed to extract or analyze text." });
+      res.status(500).json({ error: "Failed to extract or analyze text. Please check server logs." });
     }
   });
 
